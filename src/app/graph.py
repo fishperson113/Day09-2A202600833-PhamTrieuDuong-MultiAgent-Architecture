@@ -178,6 +178,23 @@ class ShoppingAssistant:
             "not_found_entities": [],
         }
 
+        # Fallback: nếu tool calls có not_found nhưng LLM ko parse được
+        # (LLM yếu, ignore tool result), tự detect từ tool_calls
+        tool_calls = _extract_tool_calls(response)
+        if not result.get("not_found_entities") and not result.get("missing_fields"):
+            for tc in tool_calls:
+                name = tc["name"]
+                args = tc["args"]
+                # Re-execute tool để check result
+                for t in self.data_tools:
+                    if t.name == name:
+                        tool_result = t.invoke(args)
+                        if isinstance(tool_result, dict) and tool_result.get("status") == "not_found":
+                            entity = f"{name.split('_by_')[0] if '_by_' in name else name} {args.get('order_id') or args.get('customer_id') or ''}"
+                            result["not_found_entities"].append(entity.strip())
+                            result["status"] = "not_found"
+                        break
+
         state["data_result"] = result
         _append_trace(state, {
             "node": "worker_2_data",

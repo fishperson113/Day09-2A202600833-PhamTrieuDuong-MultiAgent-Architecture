@@ -16,14 +16,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_path(path_str: str, root_dir: Path) -> Path:
+    """Resolve path. Nếu là relative, dùng root_dir (ko phải CWD)."""
+    p = Path(path_str)
+    if p.is_absolute():
+        return p
+    return (root_dir / p).resolve()
+
+
 def main() -> None:
     args = build_parser().parse_args()
     assistant = ShoppingAssistant()
 
     if args.batch:
         output_dir = assistant.settings.traces_dir / "batch"
+        test_file = _resolve_path(args.test_file, assistant.settings.root_dir)
         summary = assistant.run_batch(
-            test_file=Path(args.test_file),
+            test_file=test_file,
             output_dir=output_dir,
             rebuild_index=args.rebuild_index,
         )
